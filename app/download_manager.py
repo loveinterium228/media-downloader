@@ -46,7 +46,9 @@ class DownloadManager(QObject):
 
     def add_urls(self, urls):
         for url in urls:
-            url = self._normalize_url(url)
+            if not url or not str(url).strip():
+                continue
+            url = self._normalize_url(str(url))
             task = DownloadTask(url)
             task.thumbnail_load_requested.connect(self.queue_thumbnail_load)
             self.tasks.append(task)

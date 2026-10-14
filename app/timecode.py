@@ -1,4 +1,4 @@
-"""Разбор и вывод меток времени для обрезки видео."""
+import math
 
 # Поля разделяет только двоеточие: если считать «5.30» за «5:30», то «12.5»
 # станет двенадцатью минутами вместо двенадцати с половиной секунд.
@@ -33,8 +33,8 @@ def parse_timecode(text):
     except ValueError:
         raise ValueError(f'метка времени содержит не только цифры: {text!r}')
 
-    if any(n < 0 for n in numbers):
-        raise ValueError(f'отрицательное время: {text!r}')
+    if any(math.isnan(n) or math.isinf(n) or n < 0 for n in numbers):
+        raise ValueError(f'некорректное время: {text!r}')
 
     # Сверх шестидесяти не запрещаем: «90:00» читается однозначно.
     total = 0.0
@@ -47,12 +47,18 @@ def format_timecode(seconds):
     """Обратное преобразование — для показа в интерфейсе."""
     if seconds is None:
         return ''
-    seconds = max(0, int(round(float(seconds))))
-    hours, remainder = divmod(seconds, 3600)
-    minutes, secs = divmod(remainder, 60)
+    try:
+        val = float(seconds)
+        if math.isnan(val) or math.isinf(val):
+            return ''
+        secs = max(0, int(round(val)))
+    except (ValueError, OverflowError, TypeError):
+        return ''
+    hours, remainder = divmod(secs, 3600)
+    minutes, s = divmod(remainder, 60)
     if hours:
-        return f'{hours}:{minutes:02d}:{secs:02d}'
-    return f'{minutes}:{secs:02d}'
+        return f'{hours}:{minutes:02d}:{s:02d}'
+    return f'{minutes}:{s:02d}'
 
 
 def validate_range(start, end, duration=None):
@@ -62,7 +68,7 @@ def validate_range(start, end, duration=None):
     """
     if start is not None and end is not None and end <= start:
         return 'end_before_start'
-    if duration:
+    if duration and duration > 0:
         if start is not None and start >= duration:
             return 'start_after_end_of_video'
         if end is not None and end > duration + 1:

@@ -92,16 +92,34 @@ class DownloadTask(QObject):
             height = fmt.get('height')
             if not height:
                 continue
+            try:
+                h_val = int(height)
+            except (ValueError, TypeError):
+                continue
+            fps_raw = fmt.get('fps')
+            fps_val = 0
+            if fps_raw:
+                try:
+                    fps_val = int(round(float(fps_raw)))
+                except (ValueError, TypeError):
+                    fps_val = 0
+            size_raw = fmt.get('filesize') or fmt.get('filesize_approx')
+            size_val = 0
+            if size_raw:
+                try:
+                    size_val = int(size_raw)
+                except (ValueError, TypeError):
+                    size_val = 0
             compact.append({
                 'format_id': fmt.get('format_id'),
                 'ext': fmt.get('ext'),
-                'height': height,
-                'fps': fmt.get('fps'),
+                'height': h_val,
+                'fps': fps_val,
                 'vcodec': fmt.get('vcodec') or '',
                 'has_audio': fmt.get('acodec') not in (None, 'none'),
-                'filesize': fmt.get('filesize') or fmt.get('filesize_approx'),
+                'filesize': size_val,
             })
-        compact.sort(key=lambda f: (f['height'], f['fps'] or 0, f['filesize'] or 0), reverse=True)
+        compact.sort(key=lambda f: (f['height'], f['fps'], f['filesize']), reverse=True)
         return compact
 
     def update_current_paths(self, tmpfilename=None, filename=None):

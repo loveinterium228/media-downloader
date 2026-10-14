@@ -14,7 +14,7 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%20--%203.14-3776AB?logo=python&logoColor=white" alt="Python"></a>
   <a href="https://www.riverbankcomputing.com/software/pyqt/"><img src="https://img.shields.io/badge/GUI-PyQt6-41CD52?logo=qt&logoColor=white" alt="PyQt6"></a>
   <a href="https://github.com/yt-dlp/yt-dlp"><img src="https://img.shields.io/badge/Engine-yt--dlp-FF0000?logo=youtube&logoColor=white" alt="yt-dlp"></a>
-  <a href="https://pytest.org"><img src="https://img.shields.io/badge/Tests-47%20Passed-0A9EDC?logo=pytest&logoColor=white" alt="Tests"></a>
+  <a href="https://pytest.org"><img src="https://img.shields.io/badge/Tests-62%20Passed-0A9EDC?logo=pytest&logoColor=white" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-F1E05A" alt="License"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%20x64-0078D6?logo=windows&logoColor=white" alt="Windows x64">
 </p>
@@ -60,28 +60,28 @@ The application adopts a decoupled, event-driven architecture that strictly sepa
 ```mermaid
 flowchart TD
     subgraph UI ["Qt Main Thread (GUI & Event Loop)"]
-        MW[MainWindow / Navigation Stack]
-        DIW[DownloadItemWidget Cards]
-        HT[History Tab & Search Index]
-        ST[Settings Tab & QSettings]
+        MW["MainWindow (Navigation Stack)"]
+        DIW["DownloadItemWidget Cards"]
+        HT["History Tab & Search Index"]
+        ST["Settings Tab & QSettings"]
     end
 
     subgraph Manager ["Coordination Layer"]
-        DM[DownloadManager]
-        TM[ThemeManager & QSS Engine]
-        TR[Translation Engine (i18n)]
+        DM["DownloadManager"]
+        TM["ThemeManager & QSS Engine"]
+        TR["Translation Engine (i18n)"]
     end
 
     subgraph Pool ["QThreadPool (Asynchronous Workers)"]
-        IW[InfoWorker\nyt-dlp metadata probe]
-        TW[ThumbnailWorker\nConnection Pool + LRU Cache]
-        DW[DownloadWorker\nChunk streaming + Progress hooks]
+        IW["InfoWorker (Metadata Probe)"]
+        TW["ThumbnailWorker (HTTP Pool & LRU Cache)"]
+        DW["DownloadWorker (Streaming Core & Hooks)"]
     end
 
     subgraph Processing ["Processing & Storage"]
-        FF[FFmpeg / FFprobe Engine]
-        HM[HistoryManager\nJSON Persistence]
-        FS[(Local File System)]
+        FF["FFmpeg / FFprobe Engine"]
+        HM["HistoryManager (JSON Persistence)"]
+        FS[("Local File System")]
     end
 
     MW -->|User Actions| DM
@@ -203,7 +203,7 @@ python main.py
 
 ## Automated Testing
 
-The project maintains a 100% passing automated test suite with **47 comprehensive tests** covering concurrency safety, timecode parsing, history JSON integrity, and offscreen Qt workflows:
+The project maintains a 100% passing automated test suite with **62 comprehensive tests** across 17 test modules covering concurrency safety, timecode parsing, history JSON integrity, real live network streaming, and offscreen Qt workflows:
 
 ```powershell
 # Run the complete test suite in headless mode
@@ -212,6 +212,10 @@ pytest tests/ -v
 ```
 
 ### Test Suite Breakdown:
+- `test_concurrency_stress.py`: Thread pool high-load queue invariants, race condition resilience, rapid start/stop cycling.
+- `test_live_network_streams.py`: Live network metadata extraction and stream chunk download verification with real CC0 media.
+- `test_timecode_deep_resilience.py`: Rejection of NaN, Infinity, negative values, and resilient boundary checking.
+- `test_ui_advanced_interactions.py`: FormatDialog, TrimDialog, dynamic multilingual card switching, and helper functions.
 - `test_download_manager_logic.py`: Queue throttling, concurrent limit enforcement, task completion signals.
 - `test_download_manager_bugs.py`: Verifies idempotency and prevents double-decrement race conditions.
 - `test_download_worker_pipeline.py`: Task cancellation, progress hook reporting, and partial file cleanup.
@@ -275,7 +279,7 @@ media-downloader/
 │   ├── ru.json                 # Russian localization
 │   └── uk.json                 # Ukrainian localization
 ├── screenshots/                # Application preview screenshots
-├── tests/                      # Automated test suite (47 tests)
+├── tests/                      # Automated test suite (62 tests)
 ├── installer.iss               # Inno Setup Windows installer configuration
 ├── LICENSE                     # MIT License
 ├── main.py                     # Application entry point
