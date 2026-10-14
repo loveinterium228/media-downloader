@@ -57,43 +57,9 @@ Whether downloading raw 4K 60fps streams, extracting pure 192kbps audio tracks, 
 
 The application adopts a decoupled, event-driven architecture that strictly separates UI state, task lifecycle management, background thread execution, and disk persistence.
 
-```mermaid
-flowchart TD
-    subgraph UI ["Qt Main Thread (GUI & Event Loop)"]
-        MW["MainWindow (Navigation Stack)"]
-        DIW["DownloadItemWidget Cards"]
-        HT["History Tab & Search Index"]
-        ST["Settings Tab & QSettings"]
-    end
-
-    subgraph Manager ["Coordination Layer"]
-        DM["DownloadManager"]
-        TM["ThemeManager & QSS Engine"]
-        TR["Translation Engine (i18n)"]
-    end
-
-    subgraph Pool ["QThreadPool (Asynchronous Workers)"]
-        IW["InfoWorker (Metadata Probe)"]
-        TW["ThumbnailWorker (HTTP Pool & LRU Cache)"]
-        DW["DownloadWorker (Streaming Core & Hooks)"]
-    end
-
-    subgraph Processing ["Processing & Storage"]
-        FF["FFmpeg / FFprobe Engine"]
-        HM["HistoryManager (JSON Persistence)"]
-        FS[("Local File System")]
-    end
-
-    MW -->|User Actions| DM
-    DM -->|Dispatches QRunnable| Pool
-    IW -->|info_fetched signal| DM
-    TW -->|thumbnail_loaded signal| DIW
-    DW -->|progress & status signals| DIW
-    DW -->|Subprocess Pipe| FF
-    FF -->|Mux / Transcode / Trim| FS
-    DM -->|State Transitions| HM
-    HM -->|Read / Write| FS
-```
+<p align="center">
+  <img src="assets/architecture.png" alt="System Architecture Diagram" width="900">
+</p>
 
 ---
 
