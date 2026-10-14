@@ -58,7 +58,7 @@ Whether downloading raw 4K 60fps streams, extracting pure 192kbps audio tracks, 
 The application adopts a decoupled, event-driven architecture that strictly separates UI state, task lifecycle management, background thread execution, and disk persistence.
 
 <p align="center">
-  <img src="assets/architecture-diagram.png" alt="System Architecture Diagram" width="950">
+  <img src="assets/architecture-pipeline.png" alt="System Architecture Diagram" width="950">
 </p>
 
 ---
