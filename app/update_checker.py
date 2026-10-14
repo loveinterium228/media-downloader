@@ -42,14 +42,20 @@ class UpdateCheckWorker(QRunnable):
             logger.info(f"yt-dlp version check: current={current_version}, latest={latest_version}")
 
             # Compare versions
-            if version.parse(latest_version) > version.parse(current_version):
-                self.signals.update_available.emit(current_version, latest_version)
-            else:
-                self.signals.no_update_needed.emit()
+            try:
+                if version.parse(latest_version) > version.parse(current_version):
+                    self.signals.update_available.emit(current_version, latest_version)
+                else:
+                    self.signals.no_update_needed.emit()
+            except RuntimeError:
+                pass
 
         except Exception as e:
             logger.error(f"Failed to check for yt-dlp updates: {e}")
-            self.signals.check_failed.emit(str(e))
+            try:
+                self.signals.check_failed.emit(str(e))
+            except RuntimeError:
+                pass
 
 
 class UpdateWorker(QRunnable):
@@ -80,19 +86,28 @@ class UpdateWorker(QRunnable):
                 **paths.subprocess_kwargs()
             )
 
-            if result.returncode == 0:
-                logger.info("yt-dlp updated successfully")
-                self.signals.update_completed.emit(True, "yt-dlp updated successfully!")
-            else:
-                error_msg = result.stderr or result.stdout
-                logger.error(f"yt-dlp update failed: {error_msg}")
-                self.signals.update_completed.emit(False, f"Update failed: {error_msg[:200]}")
+            try:
+                if result.returncode == 0:
+                    logger.info("yt-dlp updated successfully")
+                    self.signals.update_completed.emit(True, "yt-dlp updated successfully!")
+                else:
+                    error_msg = result.stderr or result.stdout
+                    logger.error(f"yt-dlp update failed: {error_msg}")
+                    self.signals.update_completed.emit(False, f"Update failed: {error_msg[:200]}")
+            except RuntimeError:
+                pass
 
         except subprocess.TimeoutExpired:
-            self.signals.update_completed.emit(False, "Update timed out")
+            try:
+                self.signals.update_completed.emit(False, "Update timed out")
+            except RuntimeError:
+                pass
         except Exception as e:
             logger.error(f"Failed to update yt-dlp: {e}")
-            self.signals.update_completed.emit(False, str(e))
+            try:
+                self.signals.update_completed.emit(False, str(e))
+            except RuntimeError:
+                pass
 
 
 class UpdateChecker(QObject):
