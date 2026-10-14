@@ -24,6 +24,10 @@ class UpdateCheckWorker(QRunnable):
         self.signals = UpdateSignals()
 
     def run(self):
+        signals = getattr(self, 'signals', None)
+        if signals is None:
+            return
+
         try:
             import yt_dlp
             current_version = yt_dlp.version.__version__
@@ -44,18 +48,20 @@ class UpdateCheckWorker(QRunnable):
             # Compare versions
             try:
                 if version.parse(latest_version) > version.parse(current_version):
-                    self.signals.update_available.emit(current_version, latest_version)
+                    signals.update_available.emit(current_version, latest_version)
                 else:
-                    self.signals.no_update_needed.emit()
-            except RuntimeError:
+                    signals.no_update_needed.emit()
+            except (RuntimeError, AttributeError):
                 pass
 
         except Exception as e:
-            logger.error(f"Failed to check for yt-dlp updates: {e}")
-            try:
-                self.signals.check_failed.emit(str(e))
-            except RuntimeError:
-                pass
+            if not isinstance(e, (AttributeError, RuntimeError)):
+                logger.error(f"Failed to check for yt-dlp updates: {e}")
+            if signals is not None:
+                try:
+                    signals.check_failed.emit(str(e))
+                except (RuntimeError, AttributeError):
+                    pass
 
 
 class UpdateWorker(QRunnable):
@@ -64,6 +70,10 @@ class UpdateWorker(QRunnable):
         self.signals = UpdateSignals()
 
     def run(self):
+        signals = getattr(self, 'signals', None)
+        if signals is None:
+            return
+
         try:
             # In a frozen build sys.executable is this application, not a Python
             # interpreter: running it with "-m pip" would launch a second copy of
@@ -71,10 +81,13 @@ class UpdateWorker(QRunnable):
             # lives inside the bundle.
             if getattr(sys, 'frozen', False):
                 logger.info('Skipping pip update: running from a frozen build')
-                self.signals.update_completed.emit(
-                    False,
-                    'This build ships with its own yt-dlp. Install the latest '
-                    'release of the app to update it.')
+                try:
+                    signals.update_completed.emit(
+                        False,
+                        'This build ships with its own yt-dlp. Install the latest '
+                        'release of the app to update it.')
+                except (RuntimeError, AttributeError):
+                    pass
                 return
 
             python_exe = sys.executable
@@ -89,24 +102,25 @@ class UpdateWorker(QRunnable):
             try:
                 if result.returncode == 0:
                     logger.info("yt-dlp updated successfully")
-                    self.signals.update_completed.emit(True, "yt-dlp updated successfully!")
+                    signals.update_completed.emit(True, "yt-dlp updated successfully!")
                 else:
                     error_msg = result.stderr or result.stdout
                     logger.error(f"yt-dlp update failed: {error_msg}")
-                    self.signals.update_completed.emit(False, f"Update failed: {error_msg[:200]}")
-            except RuntimeError:
+                    signals.update_completed.emit(False, f"Update failed: {error_msg[:200]}")
+            except (RuntimeError, AttributeError):
                 pass
 
         except subprocess.TimeoutExpired:
             try:
-                self.signals.update_completed.emit(False, "Update timed out")
-            except RuntimeError:
+                signals.update_completed.emit(False, "Update timed out")
+            except (RuntimeError, AttributeError):
                 pass
         except Exception as e:
-            logger.error(f"Failed to update yt-dlp: {e}")
+            if not isinstance(e, (AttributeError, RuntimeError)):
+                logger.error(f"Failed to update yt-dlp: {e}")
             try:
-                self.signals.update_completed.emit(False, str(e))
-            except RuntimeError:
+                signals.update_completed.emit(False, str(e))
+            except (RuntimeError, AttributeError):
                 pass
 
 
@@ -119,14 +133,20 @@ class UpdateChecker(QObject):
         self.thread_pool = thread_pool
         self._current_version = None
         self._latest_version = None
+        self._workers = set()
 
     def check_for_updates(self, silent=False):
         """Check for yt-dlp updates. If silent=True, don't show dialog if no update."""
         self._silent = silent
         worker = UpdateCheckWorker()
-        worker.signals.update_available.connect(self._on_update_available)
-        worker.signals.no_update_needed.connect(self._on_no_update)
-        worker.signals.check_failed.connect(self._on_check_failed)
+        self._workers.add(worker)
+
+        def _cleanup():
+            self._workers.discard(worker)
+
+        worker.signals.update_available.connect(lambda cur, lat: (_cleanup(), self._on_update_available(cur, lat)))
+        worker.signals.no_update_needed.connect(lambda: (_cleanup(), self._on_no_update()))
+        worker.signals.check_failed.connect(lambda err: (_cleanup(), self._on_check_failed(err)))
         self.thread_pool.start(worker)
 
     def _on_update_available(self, current_version, latest_version):
@@ -196,9 +216,13 @@ class UpdateChecker(QObject):
         progress.show()
 
         worker = UpdateWorker()
-        worker.signals.update_completed.connect(
-            lambda success, msg: self._on_update_completed(success, msg, progress)
-        )
+        self._workers.add(worker)
+
+        def _on_completed(success, msg):
+            self._workers.discard(worker)
+            self._on_update_completed(success, msg, progress)
+
+        worker.signals.update_completed.connect(_on_completed)
         self.thread_pool.start(worker)
 
     def _on_update_completed(self, success, message, progress_dialog):

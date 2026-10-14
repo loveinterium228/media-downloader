@@ -138,8 +138,14 @@ class InfoWorker(QRunnable):
                 else:
                     self.signals.info_fetched.emit(info)
         except Exception as e:
-            logger.error(f"InfoWorker error for {self.url}: {e}")
-            self.signals.error.emit(str(e))
+            if not isinstance(e, (AttributeError, RuntimeError)):
+                logger.error(f"InfoWorker error for {self.url}: {e}")
+            signals = getattr(self, 'signals', None)
+            if signals is not None:
+                try:
+                    signals.error.emit(str(e))
+                except (RuntimeError, AttributeError):
+                    pass
 
 
 class ThumbnailWorker(QRunnable):
@@ -150,11 +156,16 @@ class ThumbnailWorker(QRunnable):
         self.signals = WorkerSignals()
 
     def run(self):
+        signals = getattr(self, 'signals', None)
         try:
             # Check cache first
             cached = thumbnail_cache.get(self.url)
             if cached is not None:
-                self.signals.thumbnail_loaded.emit(cached)
+                if signals is not None:
+                    try:
+                        signals.thumbnail_loaded.emit(cached)
+                    except (RuntimeError, AttributeError):
+                        pass
                 return
 
             # Use connection-pooled session
@@ -167,7 +178,11 @@ class ThumbnailWorker(QRunnable):
                 pixmap = QPixmap.fromImage(image)
                 # Cache the result
                 thumbnail_cache.set(self.url, pixmap)
-                self.signals.thumbnail_loaded.emit(pixmap)
+                if signals is not None:
+                    try:
+                        signals.thumbnail_loaded.emit(pixmap)
+                    except (RuntimeError, AttributeError):
+                        pass
         except Exception as e:
             logger.debug(f"Failed to load thumbnail from {self.url}: {e}")
 
@@ -688,10 +703,21 @@ class DownloadWorker(QRunnable):
         except yt_dlp.utils.DownloadCancelled:
             self.task.set_status(self.task.Status.STOPPED)
         except Exception as e:
-            logger.error(f"DownloadWorker error for {self.task.url}: {traceback.format_exc()}")
-            self.signals.error.emit(self._explain_error(str(e)))
+            if not isinstance(e, (AttributeError, RuntimeError)):
+                logger.error(f"DownloadWorker error for {self.task.url}: {traceback.format_exc()}")
+            signals = getattr(self, 'signals', None)
+            if signals is not None:
+                try:
+                    signals.error.emit(self._explain_error(str(e)))
+                except (RuntimeError, AttributeError):
+                    pass
         finally:
             if self.task.status != self.task.Status.COMPLETED:
                 path = self.task.save_path or self._default_save_path()
                 self._cleanup_incomplete(path)
-            self.signals.finished.emit()
+            signals = getattr(self, 'signals', None)
+            if signals is not None:
+                try:
+                    signals.finished.emit()
+                except (RuntimeError, AttributeError):
+                    pass

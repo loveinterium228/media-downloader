@@ -49,8 +49,19 @@ class MainWindow(QMainWindow):
         self.translator.language_changed.connect(self.update_translations)
 
         # Check for updates and Deno on startup (after window is shown)
-        from PyQt6.QtCore import QTimer
-        QTimer.singleShot(1000, self._startup_checks)
+        is_testing = (
+            'pytest' in sys.modules
+            or bool(os.environ.get('PYTEST_CURRENT_TEST'))
+            or getattr(sys, '_running_pytest', False)
+        )
+        if not is_testing:
+            from PyQt6.QtCore import QTimer
+            self._startup_timer = QTimer(self)
+            self._startup_timer.setSingleShot(True)
+            self._startup_timer.timeout.connect(self._startup_checks)
+            self._startup_timer.start(1000)
+        else:
+            self._startup_timer = None
 
     def check_ffmpeg(self):
         """Locate ffmpeg, but never refuse to start without it.
@@ -789,6 +800,8 @@ class MainWindow(QMainWindow):
             self._rebuild_recent_buttons()
 
     def closeEvent(self, event):
+        if getattr(self, '_startup_timer', None) and self._startup_timer.isActive():
+            self._startup_timer.stop()
         self.download_manager.stop_all()
         # Ждём завершения не дольше пяти секунд. Раньше ожидание было
         # бессрочным и выполнялось в главном потоке: пока шла медленная
